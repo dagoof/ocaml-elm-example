@@ -10,9 +10,15 @@ License:      BSD-3-clause
 BuildTools:   ocamlbuild
 Plugins:      META (0.4), DevFiles (0.4)
 
+Library model
+  Path:           src
+  Modules:        Model
+  CompiledObject: byte
+  BuildDepends:   ppx_deriving_yojson
+
 Executable server
   Path:             src
   MainIs:           server.ml
   CompiledObject:   native
   Install:          false
-  BuildDepends:     opium.unix
+  BuildDepends:     opium.unix, lwt, yojson, model, cohttp, batteries, rresult
