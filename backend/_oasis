@@ -1,0 +1,18 @@
+OASISFormat:  0.4
+OCamlVersion: >= 4.02.3
+Name:         ocaml_elm_example
+Version:      0.1
+Maintainers:  Peter DeGroff
+Homepage:     http://github.com/dagoof/ocaml-elm-example
+Synopsis:     Example of serving an Elm app with an Opium backend
+Authors:      peter.degroff@gmail.com
+License:      BSD-3-clause
+BuildTools:   ocamlbuild
+Plugins:      META (0.4), DevFiles (0.4)
+
+Executable server
+  Path:             src
+  MainIs:           server.ml
+  CompiledObject:   native
+  Install:          false
+  BuildDepends:     opium.unix

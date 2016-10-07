@@ -1,0 +1,6 @@
+backend/_build
+backend/*.native
+backend/setup.data
+backend/setup.log
+frontend/elm-stuff
+frontend/*.html
