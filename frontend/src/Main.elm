@@ -8,47 +8,22 @@ import Html.Attributes as A
 import Html.App as H
 import Json.Decode as Decoder exposing ((:=))
 
+import Quiz
+import Question
+
 type Status
     = Loading
     | Issue Http.Error
 
 type Message
     = Sync
-    | Questions ( Result Status ( List Question ))
-    | Quizzes ( Result Status ( List Quiz ) )
-
-type alias Question =
-    { id : Int
-    , question : String
-    , answers : List String
-    , correct_answer : Int
-    }
-
-type alias Quiz =
-    { id : Int
-    , title : String
-    , question_ids : List Int
-    }
-
-questionDecoder : Decoder.Decoder Question
-questionDecoder =
-    Decoder.object4 Question
-    ( "id" := Decoder.int )
-    ( "question" := Decoder.string )
-    ( "answers" := Decoder.list Decoder.string )
-    ( "correct_answer" := Decoder.int )
-
-quizDecoder : Decoder.Decoder Quiz
-quizDecoder =
-    Decoder.object3 Quiz
-    ( "id" := Decoder.int )
-    ( "title" := Decoder.string )
-    ( "question_ids" := Decoder.list Decoder.int )
+    | Questions ( Result Status ( List Question.Question ))
+    | Quizzes ( Result Status ( List Quiz.Quiz ) )
 
 getQuizzes : Cmd Message
 getQuizzes =
     Http.get
-        ( "quizzes" := Decoder.list quizDecoder )
+        ( "quizzes" := Decoder.list Quiz.decoder )
         "http://localhost:3000/quizzes"
         |> Task.perform
             ( Quizzes << Result.Err << Issue )
@@ -57,7 +32,7 @@ getQuizzes =
 getQuestions : Cmd Message
 getQuestions =
     Http.get
-        ( "questions" := Decoder.list questionDecoder )
+        ( "questions" := Decoder.list Question.decoder )
         "http://localhost:3000/questions"
         |> Task.perform
             ( Questions << Result.Err << Issue )
@@ -65,8 +40,8 @@ getQuestions =
 
 
 type alias State =
-    { questions : Result Status ( List Question )
-    , quizzes : Result Status ( List Quiz )
+    { questions : Result Status ( List Question.Question )
+    , quizzes : Result Status ( List Quiz.Quiz )
     , stage : Stage
     }
 
@@ -90,7 +65,7 @@ update msg state =
             { state | quizzes = quizzes } ! []
 
 
-viewQuestion : Question -> H.Html Message
+viewQuestion : Question.Question -> H.Html Message
 viewQuestion question =
     let viewAnswer index answer =
         H.li
@@ -109,7 +84,7 @@ viewQuestion question =
                 ( List.indexedMap viewAnswer question.answers )
             ]
 
-viewQuiz : List Question -> Quiz -> H.Html Message
+viewQuiz : List Question.Question -> Quiz.Quiz -> H.Html Message
 viewQuiz questions quiz =
     let
         questionInQuiz question =
@@ -131,7 +106,7 @@ viewQuiz questions quiz =
             , H.div [] questions'
             ]
 
-viewQuizSummary : List Quiz -> H.Html Message
+viewQuizSummary : List Quiz.Quiz -> H.Html Message
 viewQuizSummary quizzes =
     let viewQuiz' quiz =
         H.li
