@@ -50,7 +50,7 @@ getQuizzes =
     Http.get
         ( "quizzes" := Decoder.list quizDecoder )
         "http://localhost:3000/quizzes"
-        |> Task.perform 
+        |> Task.perform
             ( Quizzes << Result.Err << Issue )
             ( Quizzes << Result.Ok )
 
@@ -59,7 +59,7 @@ getQuestions =
     Http.get
         ( "questions" := Decoder.list questionDecoder )
         "http://localhost:3000/questions"
-        |> Task.perform 
+        |> Task.perform
             ( Questions << Result.Err << Issue )
             ( Questions << Result.Ok )
 
@@ -67,13 +67,15 @@ getQuestions =
 type alias State =
     { questions : Result Status ( List Question )
     , quizzes : Result Status ( List Quiz )
+    , stage : Stage
     }
 
-init : State
-init =
+init : Result String Stage -> ( State, Cmd Message )
+init data =
     { questions = Result.Err Loading
     , quizzes = Result.Err Loading
-    }
+    , stage = getStage initStage data
+    } ! [ getQuizzes, getQuestions ]
 
 update : Message -> State -> ( State, Cmd Message )
 update msg state =
@@ -91,13 +93,20 @@ update msg state =
 viewQuestion : Question -> H.Html Message
 viewQuestion question =
     let viewAnswer index answer =
-        if index == question.correct_answer
-        then H.div [ A.style [ ( "text-decoration", "underline" )] ] [ H.text answer ]
-        else H.div [] [ H.text answer ]
+        H.li
+            [ A.classList
+                [ ("answer-item", True)
+                , ("answer-item-correct", index == question.correct_answer)
+                ]
+            ]
+            [ H.text answer ]
     in
-        H.div []
+        H.div
+            [ A.class "question-content" ]
             [ H.h2 [] [ H.text question.question ]
-            , H.div [] ( List.indexedMap viewAnswer question.answers )
+            , H.ul
+                [ A.class "answer-list" ]
+                ( List.indexedMap viewAnswer question.answers )
             ]
 
 viewQuiz : List Question -> Quiz -> H.Html Message
@@ -111,37 +120,117 @@ viewQuiz questions quiz =
             |> List.filter questionInQuiz
             |> List.map viewQuestion
     in
-        H.div []
-            [ H.h1 [] [ H.text quiz.title ]
+        H.div
+            [ A.class "quiz-content" ]
+            [ H.div []
+                [ H.a
+                    [ A.href "/" ]
+                    [ H.text "back" ]
+                ]
+            , H.h1 [] [ H.text quiz.title ]
             , H.div [] questions'
             ]
+
+viewQuizSummary : List Quiz -> H.Html Message
+viewQuizSummary quizzes =
+    let viewQuiz' quiz =
+        H.li
+            [ A.class "quiz-list-item" ]
+            [ H.a
+                [ A.href <| "/quiz/" ++ (toString quiz.id) ]
+                [ H.text quiz.title ]
+            ]
+    in
+        H.ul
+            [ A.class "quiz-list" ]
+            ( List.map viewQuiz' quizzes )
+
+viewNoQuiz : H.Html Message
+viewNoQuiz =
+    H.div
+        []
+        [ H.div []
+            [ H.a
+                [ A.href "/" ]
+                [ H.text "back" ]
+            ]
+        , H.h2 [] [ H.text "That quiz doesn't exist!" ]
+        ]
 
 view' : State -> H.Html Message
 view' state =
     case Result.map2 (,) state.questions state.quizzes of
         Result.Err Loading ->
-            H.text "loading..."
+            H.text "Loading..."
 
         Result.Err ( Issue ( Http.UnexpectedPayload message )) ->
             H.text message
 
-        Result.Err ( Issue error ) ->
-            H.text "something went wrong"
+        Result.Err ( Issue Http.Timeout ) ->
+            H.text "Something seems wrong with your connection, have a look and try again"
+
+        Result.Err ( Issue Http.NetworkError ) ->
+            H.text "Something seems wrong with the connection, have a look and try again"
+
+        Result.Err ( Issue ( Http.BadResponse code msg )) ->
+            H.text "Ugh, something went wrong on our end... Sorry about that :|"
 
         Result.Ok ( questions, quizzes ) ->
-            H.div [] ( List.map ( viewQuiz questions ) quizzes )
+            case state.stage of
+                List ->
+                    viewQuizSummary quizzes
+
+                ViewQuiz id ->
+                    List.filter (\q -> q.id == id) quizzes
+                    |> List.head
+                    |> Maybe.map ( viewQuiz questions )
+                    |> Maybe.withDefault viewNoQuiz
 
 
 view : State -> H.Html Message
 view state =
-    H.div []
+    H.div
+        [ A.class "page" ]
         [ H.node "style" [] [ H.text "@import url(\"/style.css\")" ]
         , view' state
         ]
 
-main = H.program
-    { init = init ! [ getQuizzes, getQuestions ]
+-- The current page
+type Stage
+    = List
+    | ViewQuiz Int
+
+initStage = List
+
+-- Try to parse a url location into a Stage.
+-- Our program calls this every time the URL changes
+parser : Navigation.Location -> Result String Stage
+parser location =
+    let
+        parser' =
+            P.oneOf
+            [ P.format ViewQuiz ( P.s "quiz" </> P.int )
+            , P.format List ( P.s "quiz" )
+            , P.format List ( P.s "" )
+            ]
+    in
+        P.parse
+            identity -- Our parser gives us a Stage, no post-processing needed
+            parser'
+            ( String.dropLeft 1 location.pathname ) -- Drop the /
+
+-- Just show the last good page if something goes wrong when parsing URL
+getStage = Result.withDefault
+
+-- Update our state with the result of our parser whenever URL changes
+urlUpdate data state =
+    { state | stage = getStage state.stage data } ! []
+
+main = Navigation.program
+    ( Navigation.makeParser parser )
+    { init = init
     , update = update
     , view = view
+    , urlUpdate = urlUpdate
     , subscriptions = always Sub.none
     }

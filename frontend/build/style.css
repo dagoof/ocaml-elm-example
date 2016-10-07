@@ -4,3 +4,17 @@ body {
 	/* font-family: 'Cormorant Garamond', serif; */
 	font-family: 'Lora', sans-serif;
 }
+
+.quiz-list, .answer-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.quiz-list {
+	font-size: 2rem;
+}
+
+.answer-list .answer-item-correct {
+	text-decoration: underline;
+}
