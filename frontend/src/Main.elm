@@ -87,6 +87,35 @@ update msg state =
         Quizzes quizzes ->
             { state | quizzes = quizzes } ! []
 
+
+viewQuestion : Question -> H.Html Message
+viewQuestion question =
+    let viewAnswer index answer =
+        if index == question.correct_answer
+        then H.div [ A.style [ ( "text-decoration", "underline" )] ] [ H.text answer ]
+        else H.div [] [ H.text answer ]
+    in
+        H.div []
+            [ H.h2 [] [ H.text question.question ]
+            , H.div [] ( List.indexedMap viewAnswer question.answers )
+            ]
+
+viewQuiz : List Question -> Quiz -> H.Html Message
+viewQuiz questions quiz =
+    let
+        questionInQuiz question =
+            List.member question.id quiz.question_ids
+
+        questions' =
+            questions
+            |> List.filter questionInQuiz
+            |> List.map viewQuestion
+    in
+        H.div []
+            [ H.h1 [] [ H.text quiz.title ]
+            , H.div [] questions'
+            ]
+
 view' : State -> H.Html Message
 view' state =
     case Result.map2 (,) state.questions state.quizzes of
@@ -100,10 +129,8 @@ view' state =
             H.text "something went wrong"
 
         Result.Ok ( questions, quizzes ) ->
-            H.div []
-                [ H.div [] [ H.text ( toString questions ) ]
-                , H.div [] [ H.text ( toString quizzes ) ]
-                ]
+            H.div [] ( List.map ( viewQuiz questions ) quizzes )
+
 
 view : State -> H.Html Message
 view state =
