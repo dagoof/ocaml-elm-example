@@ -1,4 +1,5 @@
-build: index.html
+build: build/index.html
 
-index.html: src/Main.elm
+build/index.html: src/Main.elm
+	-@mkdir -p $(@D)
 	elm-make --output $@ $<

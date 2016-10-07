@@ -4,3 +4,5 @@ backend/setup.data
 backend/setup.log
 frontend/elm-stuff
 frontend/*.html
+frontend/build/index.html
+node_modules

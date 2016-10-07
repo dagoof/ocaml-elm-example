@@ -4,9 +4,13 @@ open Opium.Std
 let (<<) f g x = f @@ g x
 
 let json_headers =
-    Cohttp.Header.init_with
-    "Content-Type"
-    "application/json; charset=utf-8"
+    Cohttp.Header.add_list
+    ( Cohttp.Header.init () )
+    [ "Content-Type", "application/json; charset=utf-8"
+    ; "Access-Control-Allow-Origin", "http://localhost:8085"
+    ; "Access-Control-Allow-Credentials", "true"
+    ; "Access-Control-Allow-Methods", "GET"
+    ]
 
 let load_json decoder fname =
     let open Batteries in
