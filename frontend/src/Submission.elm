@@ -5,6 +5,16 @@ import Json.Decode as Decoder exposing ((:=))
 
 import Question
 
+type Status
+    = Empty
+    | Chosen Int
+    | Submitted Response
+
+status_correct status =
+    case status of
+        Submitted {correct} -> Just correct
+
+        otherwise -> Nothing
 
 type alias Answer =
     { questionID : Int
@@ -49,3 +59,4 @@ responseDecoder =
 responsesDecoder : Decoder.Decoder Responses
 responsesDecoder =
     Decoder.list responseDecoder
+

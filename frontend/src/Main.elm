@@ -1,4 +1,5 @@
 import Http
+import Dict
 import Task
 import String
 import Navigation
@@ -27,7 +28,8 @@ type Status
 
 type Message
     = Sync
-    | Submit
+    | Submit Int
+    | SelectAnswer Int Int
     | Page String
     | Questions ( Result Status ( List Question.Question ))
     | Quizzes ( Result Status ( List Quiz.Quiz ))
@@ -69,6 +71,7 @@ postSubmission submission =
 type alias State =
     { questions : Result Status ( List Question.Question )
     , quizzes : Result Status ( List Quiz.Quiz )
+    , answers : Dict.Dict Int Submission.Status
     , grade : Result Status Submission.Response
     , stage : Stage
     }
@@ -77,6 +80,7 @@ init : Result String Stage -> ( State, Cmd Message )
 init data =
     { questions = Result.Err Loading
     , quizzes = Result.Err Loading
+    , answers = Dict.empty
     , grade = Result.Err Loading
     , stage = getStage initStage data
     } ! [ getQuizzes, getQuestions ]
@@ -99,7 +103,7 @@ update msg state =
         Grade grade ->
             { state | grade = grade } ! []
 
-        Submit ->
+        Submit questionID ->
             let
                 {-
                 submission =
@@ -114,40 +118,68 @@ update msg state =
             in
                 state ! [ postSubmission submission ]
 
+        SelectAnswer questionID index ->
+            let
+                status =
+                    Submission.Chosen index
+
+                answers =
+                    Dict.insert questionID status state.answers
+            in
+               { state | answers = answers } ! []
 
 
-viewQuestion : Question.Question -> H.Html Message
-viewQuestion question =
-    let viewAnswer index answer =
-        H.li
-            [ A.classList
-                [ ("answer-item", True)
-                , ("answer-item-correct", index == question.correct_answer)
+viewQuestion : Submission.Status -> Question.Question -> H.Html Message
+viewQuestion status question =
+    let
+        viewAnswer index answer =
+            H.li
+                [ A.classList
+                    [ ("answer-item", True)
+                    , ("answer-item-selected", Submission.Chosen index == status )
+                    , ("answer-item-correct", index == question.correct_answer)
+                    ]
+                , E.onClick ( SelectAnswer question.id index )
                 ]
-            ]
-            [ H.text answer ]
+                [ H.text answer ]
+
+        status_correct = Submission.status_correct status
     in
         H.div
-            [ A.class "question-content" ]
+            [ A.classList
+                [ ("question-content", True)
+                , ("question-content-correct", Just True == status_correct)
+                , ("question-content-incorrect", Just False == status_correct)
+                ]
+            ]
             [ H.h2 [] [ H.text question.question ]
             , H.ul
                 [ A.class "answer-list" ]
                 ( List.indexedMap viewAnswer question.answers )
             , H.button
-                [ E.onClick Submit ]
+                [ E.onClick ( Submit question.id ) ]
                 [ H.text "Submit" ]
             ]
 
-viewQuiz : List Question.Question -> Quiz.Quiz -> H.Html Message
-viewQuiz questions quiz =
+viewQuiz
+    : Dict.Dict Int Submission.Status
+    -> List Question.Question
+    -> Quiz.Quiz
+    -> H.Html Message
+viewQuiz answers questions quiz =
     let
         questionInQuiz question =
             List.member question.id quiz.question_ids
 
+        status question =
+            answers
+            |> Dict.get question.id
+            |> Maybe.withDefault Submission.Empty
+
         questions' =
             questions
             |> List.filter questionInQuiz
-            |> List.map viewQuestion
+            |> List.map (\q -> viewQuestion (status q) q )
     in
         H.div
             [ A.class "quiz-content" ]
@@ -207,18 +239,16 @@ view' state =
         Result.Ok ( questions, quizzes ) ->
             case state.stage of
                 List ->
-                    H.div []
-                    [ H.button
-                        [ E.onClick Submit ]
-                        [ H.text "submit" ]
-                    , H.div [] [ H.text ( toString state.grade ) ]
-                    , viewQuizSummary quizzes
-                    ]
+                    H.div
+                        []
+                        [ H.div [] [ H.text ( toString state.grade ) ]
+                        , viewQuizSummary quizzes
+                        ]
 
                 ViewQuiz id ->
                     List.filter (\q -> q.id == id) quizzes
                     |> List.head
-                    |> Maybe.map ( viewQuiz questions )
+                    |> Maybe.map ( viewQuiz state.answers questions )
                     |> Maybe.withDefault viewNoQuiz
 
 
