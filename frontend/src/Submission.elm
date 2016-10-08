@@ -6,22 +6,39 @@ import Json.Decode as Decoder exposing ((:=))
 import Question
 
 type Status
-    = Empty
-    | Chosen Int
+    = Pending
     | Submitted Response
     | Failed
 
-statusChosen status =
-    case status of
-        Chosen answer ->
-            Just answer
+type alias Tracker =
+    { selected : Maybe Int
+    , status : Status
+    }
 
-        otherwise ->
-            Nothing
+status : Status -> Tracker -> Tracker
+status s t =
+    { t | status = s }
 
+select : Int -> Tracker -> Tracker
+select index t =
+    { t | selected = Just index }
 
-statusCorrect status =
-    case status of
+selected : Int -> Tracker -> Bool
+selected index t =
+    t.selected == Just index
+
+trackerInit : Tracker
+trackerInit =
+    { selected = Nothing
+    , status = Pending
+    }
+
+trackerSelected : Tracker -> Maybe Int
+trackerSelected = .selected
+
+trackerCorrect : Tracker -> Maybe Bool
+trackerCorrect tracker =
+    case tracker.status of
         Submitted {correct} ->
             Just correct
 

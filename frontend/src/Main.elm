@@ -71,7 +71,7 @@ postSubmission submission =
 type alias State =
     { questions : Result Status ( List Question.Question )
     , quizzes : Result Status ( List Quiz.Quiz )
-    , answers : Dict.Dict Int Submission.Status
+    , answers : Dict.Dict Int Submission.Tracker
     , stage : Stage
     }
 
@@ -99,18 +99,24 @@ update msg state =
             { state | quizzes = quizzes } ! []
 
         Grade questionID grade ->
-            let answers =
-                grade
-                |> Result.toMaybe
-                |> Maybe.map Submission.Submitted
-                |> Maybe.withDefault Submission.Failed
-                |> (\s -> Dict.insert questionID s state.answers )
+            let
+                status =
+                    grade
+                    |> Result.toMaybe
+                    |> Maybe.map Submission.Submitted
+                    |> Maybe.withDefault Submission.Failed
+
+                answers =
+                    Dict.update
+                        questionID
+                        ( Maybe.map ( Submission.status status ))
+                        state.answers
             in
                { state | answers = answers } ! []
 
         Submit questionID ->
             Dict.get questionID state.answers
-            `Maybe.andThen` Submission.statusChosen
+            `Maybe.andThen` Submission.trackerSelected
             |> Maybe.map ( Submission.Answer questionID )
             |> Maybe.map postSubmission
             |> Maybe.map (\cmd -> state ! [ cmd ])
@@ -118,30 +124,33 @@ update msg state =
 
         SelectAnswer questionID index ->
             let
-                status =
-                    Submission.Chosen index
+                select tracker =
+                    tracker
+                    |> Maybe.withDefault Submission.trackerInit
+                    |> Submission.select index
+                    |> Just
 
                 answers =
-                    Dict.insert questionID status state.answers
+                    Dict.update questionID select state.answers
             in
                { state | answers = answers } ! []
 
 
-viewQuestion : Submission.Status -> Question.Question -> H.Html Message
-viewQuestion status question =
+viewQuestion : Submission.Tracker -> Question.Question -> H.Html Message
+viewQuestion tracker question =
     let
         viewAnswer index answer =
             H.li
                 [ A.classList
                     [ ("answer-item", True)
-                    , ("answer-item-selected", Submission.Chosen index == status )
+                    , ("answer-item-selected", Submission.selected index tracker )
                     , ("answer-item-correct", index == question.correct_answer)
                     ]
                 , E.onClick ( SelectAnswer question.id index )
                 ]
                 [ H.text answer ]
 
-        statusCorrect = Submission.statusCorrect status
+        statusCorrect = Submission.trackerCorrect tracker
     in
         H.div
             [ A.classList
@@ -160,7 +169,7 @@ viewQuestion status question =
             ]
 
 viewQuiz
-    : Dict.Dict Int Submission.Status
+    : Dict.Dict Int Submission.Tracker
     -> List Question.Question
     -> Quiz.Quiz
     -> H.Html Message
@@ -172,7 +181,7 @@ viewQuiz answers questions quiz =
         status question =
             answers
             |> Dict.get question.id
-            |> Maybe.withDefault Submission.Empty
+            |> Maybe.withDefault Submission.trackerInit
 
         questions' =
             questions
