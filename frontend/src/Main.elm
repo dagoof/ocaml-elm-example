@@ -5,11 +5,14 @@ import Navigation
 import UrlParser as P exposing ((</>))
 import Html as H
 import Html.Attributes as A
+import Html.Events as E
 import Html.App as H
 import Json.Decode as Decoder exposing ((:=))
+import Json.Encode as Encoder
 
 import Quiz
 import Question
+import Submission
 
 type Status
     = Loading
@@ -17,8 +20,15 @@ type Status
 
 type Message
     = Sync
+    | Submit
     | Questions ( Result Status ( List Question.Question ))
-    | Quizzes ( Result Status ( List Quiz.Quiz ) )
+    | Quizzes ( Result Status ( List Quiz.Quiz ))
+    | Grade ( Result Status Submission.Response )
+
+encodeJSON encoder data =
+    encoder data
+    |> Encoder.encode 0
+    |> Http.string
 
 getQuizzes : Cmd Message
 getQuizzes =
@@ -38,10 +48,20 @@ getQuestions =
             ( Questions << Result.Err << Issue )
             ( Questions << Result.Ok )
 
+postSubmission : Submission.Answer -> Cmd Message
+postSubmission submission =
+    Http.post
+        Submission.responseDecoder
+        "http://localhost:3000/grade"
+        ( encodeJSON Submission.encodeAnswer submission )
+        |> Task.perform
+            ( Grade << Result.Err << Issue )
+            ( Grade << Result.Ok )
 
 type alias State =
     { questions : Result Status ( List Question.Question )
     , quizzes : Result Status ( List Quiz.Quiz )
+    , grade : Result Status Submission.Response
     , stage : Stage
     }
 
@@ -49,6 +69,7 @@ init : Result String Stage -> ( State, Cmd Message )
 init data =
     { questions = Result.Err Loading
     , quizzes = Result.Err Loading
+    , grade = Result.Err Loading
     , stage = getStage initStage data
     } ! [ getQuizzes, getQuestions ]
 
@@ -63,6 +84,25 @@ update msg state =
 
         Quizzes quizzes ->
             { state | quizzes = quizzes } ! []
+
+        Grade grade ->
+            { state | grade = grade } ! []
+
+        Submit ->
+            let
+                {-
+                submission =
+                    Submission.Submission
+                        1
+                        [ Submission.Answer 1 2
+                        , Submission.Answer 2 3
+                        , Submission.Answer 3 2
+                        ]
+                        -}
+                submission = Submission.Answer 1 2
+            in
+                state ! [ postSubmission submission ]
+
 
 
 viewQuestion : Question.Question -> H.Html Message
@@ -153,7 +193,13 @@ view' state =
         Result.Ok ( questions, quizzes ) ->
             case state.stage of
                 List ->
-                    viewQuizSummary quizzes
+                    H.div []
+                    [ H.button
+                        [ E.onClick Submit ]
+                        [ H.text "submit" ]
+                    , H.div [] [ H.text ( toString state.grade ) ]
+                    , viewQuizSummary quizzes
+                    ]
 
                 ViewQuiz id ->
                     List.filter (\q -> q.id == id) quizzes

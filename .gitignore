@@ -2,6 +2,7 @@ backend/_build
 backend/*.native
 backend/setup.data
 backend/setup.log
+backend/tests/_tests
 frontend/elm-stuff
 frontend/*.html
 frontend/build/index.html

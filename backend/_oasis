@@ -14,11 +14,24 @@ Library model
   Path:           src
   Modules:        Model
   CompiledObject: byte
-  BuildDepends:   ppx_deriving_yojson
+  BuildDepends:   yojson, ppx_deriving_yojson
 
 Executable server
   Path:             src
   MainIs:           server.ml
   CompiledObject:   native
   Install:          false
-  BuildDepends:     opium.unix, lwt, yojson, model, cohttp, batteries, rresult
+  BuildDepends:     model, opium.unix, lwt, yojson, cohttp, batteries, rresult
+
+Executable test_model
+  Path:             tests
+  MainIs:           test_model.ml
+  Build$:			flag(tests)
+  CompiledObject:   best
+  Install:          false
+  BuildDepends:     model, alcotest, rresult
+
+Test test_model
+  Run$: 			flag(tests)
+  Command: 			$test_model
+  WorkingDirectory: tests
