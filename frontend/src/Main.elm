@@ -14,6 +14,13 @@ import Quiz
 import Question
 import Submission
 
+goNowhere = A.href "javascript:;"
+
+goto url =
+    [ goNowhere
+    , E.onClick ( Page url )
+    ]
+
 type Status
     = Loading
     | Issue Http.Error
@@ -21,6 +28,7 @@ type Status
 type Message
     = Sync
     | Submit
+    | Page String
     | Questions ( Result Status ( List Question.Question ))
     | Quizzes ( Result Status ( List Quiz.Quiz ))
     | Grade ( Result Status Submission.Response )
@@ -79,6 +87,9 @@ update msg state =
         Sync ->
             state ! [ getQuizzes, getQuestions ]
 
+        Page s ->
+            state ! [ Navigation.newUrl s ]
+
         Questions questions ->
             { state | questions = questions } ! []
 
@@ -122,6 +133,9 @@ viewQuestion question =
             , H.ul
                 [ A.class "answer-list" ]
                 ( List.indexedMap viewAnswer question.answers )
+            , H.button
+                [ E.onClick Submit ]
+                [ H.text "Submit" ]
             ]
 
 viewQuiz : List Question.Question -> Quiz.Quiz -> H.Html Message
@@ -139,7 +153,7 @@ viewQuiz questions quiz =
             [ A.class "quiz-content" ]
             [ H.div []
                 [ H.a
-                    [ A.href "/" ]
+                    ( goto "/" )
                     [ H.text "back" ]
                 ]
             , H.h1 [] [ H.text quiz.title ]
@@ -152,7 +166,7 @@ viewQuizSummary quizzes =
         H.li
             [ A.class "quiz-list-item" ]
             [ H.a
-                [ A.href <| "/quiz/" ++ (toString quiz.id) ]
+                ( goto <| "/quiz/" ++ ( toString quiz.id ))
                 [ H.text quiz.title ]
             ]
     in
@@ -166,7 +180,7 @@ viewNoQuiz =
         []
         [ H.div []
             [ H.a
-                [ A.href "/" ]
+                ( goto "/" )
                 [ H.text "back" ]
             ]
         , H.h2 [] [ H.text "That quiz doesn't exist!" ]
