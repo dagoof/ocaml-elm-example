@@ -22,6 +22,9 @@ goto url =
     , E.onClick ( Page url )
     ]
 
+gotoQuiz id =
+    goto ( "/quiz/" ++ ( toString id ))
+
 type Status
     = Loading
     | Issue Http.Error
@@ -29,6 +32,7 @@ type Status
 type Message
     = Sync
     | Submit Int
+    | SubmitQuiz ( List Int )
     | SelectAnswer Int Int
     | Page String
     | Questions ( Result Status ( List Question.Question ))
@@ -83,6 +87,13 @@ init data =
     , stage = getStage initStage data
     } ! [ getQuizzes, getQuestions ]
 
+submitQuestion questionID answers =
+    Dict.get questionID answers
+    `Maybe.andThen` Submission.trackerSelected
+    |> Maybe.map ( Submission.Answer questionID )
+    |> Maybe.map postSubmission
+    |> Maybe.withDefault Cmd.none
+
 update : Message -> State -> ( State, Cmd Message )
 update msg state =
     case msg of
@@ -115,12 +126,10 @@ update msg state =
                { state | answers = answers } ! []
 
         Submit questionID ->
-            Dict.get questionID state.answers
-            `Maybe.andThen` Submission.trackerSelected
-            |> Maybe.map ( Submission.Answer questionID )
-            |> Maybe.map postSubmission
-            |> Maybe.map (\cmd -> state ! [ cmd ])
-            |> Maybe.withDefault ( state ! [] )
+            state ! [ submitQuestion questionID state.answers ]
+
+        SubmitQuiz questionIDs ->
+            state ! ( List.map ( flip submitQuestion state.answers ) questionIDs )
 
         SelectAnswer questionID index ->
             let
@@ -163,9 +172,11 @@ viewQuestion tracker question =
             , H.ul
                 [ A.class "answer-list" ]
                 ( List.indexedMap viewAnswer question.answers )
+                {-
             , H.button
                 [ E.onClick ( Submit question.id ) ]
                 [ H.text "Submit" ]
+                -}
             ]
 
 viewQuiz
@@ -184,9 +195,19 @@ viewQuiz answers questions quiz =
             |> Maybe.withDefault Submission.trackerInit
 
         questions' =
-            questions
-            |> List.filter questionInQuiz
-            |> List.map (\q -> viewQuestion (status q) q )
+            List.filter questionInQuiz questions
+
+        questionView question =
+            viewQuestion ( status question ) question
+
+        allAnswered =
+            List.all ( status >> Submission.trackerHasSelection ) questions'
+
+        allCorrect =
+            let
+                correct = Maybe.withDefault False
+            in
+                List.all ( status >> Submission.trackerCorrect >> correct ) questions'
     in
         H.div
             [ A.class "quiz-content" ]
@@ -196,7 +217,15 @@ viewQuiz answers questions quiz =
                     [ H.text "back" ]
                 ]
             , H.h1 [] [ H.text quiz.title ]
-            , H.div [] questions'
+            , H.div [] ( List.map questionView questions' )
+            , H.button
+                [ E.onClick ( SubmitQuiz <| List.map .id questions' )
+                , A.disabled ( not allAnswered )
+                ]
+                [ H.text "Submit" ]
+            , H.button
+                ( A.disabled ( not allCorrect ) :: gotoQuiz ( quiz.id + 1 ))
+                [ H.text "Next" ]
             ]
 
 viewQuizSummary : List Quiz.Quiz -> H.Html Message
@@ -205,7 +234,7 @@ viewQuizSummary quizzes =
         H.li
             [ A.class "quiz-list-item" ]
             [ H.a
-                ( goto <| "/quiz/" ++ ( toString quiz.id ))
+                ( gotoQuiz quiz.id )
                 [ H.text quiz.title ]
             ]
     in

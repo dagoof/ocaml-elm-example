@@ -34,7 +34,14 @@ trackerInit =
     }
 
 trackerSelected : Tracker -> Maybe Int
-trackerSelected = .selected
+trackerSelected =
+    .selected
+
+trackerHasSelection : Tracker -> Bool
+trackerHasSelection tracker =
+    tracker.selected
+    |> Maybe.map ( always True )
+    |> Maybe.withDefault False
 
 trackerCorrect : Tracker -> Maybe Bool
 trackerCorrect tracker =
