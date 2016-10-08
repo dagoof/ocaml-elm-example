@@ -9,12 +9,24 @@ type Status
     = Empty
     | Chosen Int
     | Submitted Response
+    | Failed
 
-status_correct status =
+statusChosen status =
     case status of
-        Submitted {correct} -> Just correct
+        Chosen answer ->
+            Just answer
 
-        otherwise -> Nothing
+        otherwise ->
+            Nothing
+
+
+statusCorrect status =
+    case status of
+        Submitted {correct} ->
+            Just correct
+
+        otherwise ->
+            Nothing
 
 type alias Answer =
     { questionID : Int

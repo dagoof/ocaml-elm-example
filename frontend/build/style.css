@@ -15,6 +15,18 @@ body {
 	font-size: 2rem;
 }
 
+.question-content.question-content-correct h2 {
+	color: green;
+}
+
+.question-content.question-content-incorrect h2 {
+	color: red;
+}
+
 .answer-list .answer-item-correct {
 	text-decoration: underline;
+}
+
+.answer-list .answer-item-selected {
+	color: blue;
 }

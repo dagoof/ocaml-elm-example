@@ -33,7 +33,7 @@ type Message
     | Page String
     | Questions ( Result Status ( List Question.Question ))
     | Quizzes ( Result Status ( List Quiz.Quiz ))
-    | Grade ( Result Status Submission.Response )
+    | Grade Int ( Result Status Submission.Response )
 
 encodeJSON encoder data =
     encoder data
@@ -65,14 +65,13 @@ postSubmission submission =
         "http://localhost:3000/grade"
         ( encodeJSON Submission.encodeAnswer submission )
         |> Task.perform
-            ( Grade << Result.Err << Issue )
-            ( Grade << Result.Ok )
+            ( Grade submission.questionID << Result.Err << Issue )
+            ( Grade submission.questionID << Result.Ok )
 
 type alias State =
     { questions : Result Status ( List Question.Question )
     , quizzes : Result Status ( List Quiz.Quiz )
     , answers : Dict.Dict Int Submission.Status
-    , grade : Result Status Submission.Response
     , stage : Stage
     }
 
@@ -81,7 +80,6 @@ init data =
     { questions = Result.Err Loading
     , quizzes = Result.Err Loading
     , answers = Dict.empty
-    , grade = Result.Err Loading
     , stage = getStage initStage data
     } ! [ getQuizzes, getQuestions ]
 
@@ -100,23 +98,23 @@ update msg state =
         Quizzes quizzes ->
             { state | quizzes = quizzes } ! []
 
-        Grade grade ->
-            { state | grade = grade } ! []
+        Grade questionID grade ->
+            let answers =
+                grade
+                |> Result.toMaybe
+                |> Maybe.map Submission.Submitted
+                |> Maybe.withDefault Submission.Failed
+                |> (\s -> Dict.insert questionID s state.answers )
+            in
+               { state | answers = answers } ! []
 
         Submit questionID ->
-            let
-                {-
-                submission =
-                    Submission.Submission
-                        1
-                        [ Submission.Answer 1 2
-                        , Submission.Answer 2 3
-                        , Submission.Answer 3 2
-                        ]
-                        -}
-                submission = Submission.Answer 1 2
-            in
-                state ! [ postSubmission submission ]
+            Dict.get questionID state.answers
+            `Maybe.andThen` Submission.statusChosen
+            |> Maybe.map ( Submission.Answer questionID )
+            |> Maybe.map postSubmission
+            |> Maybe.map (\cmd -> state ! [ cmd ])
+            |> Maybe.withDefault ( state ! [] )
 
         SelectAnswer questionID index ->
             let
@@ -143,13 +141,13 @@ viewQuestion status question =
                 ]
                 [ H.text answer ]
 
-        status_correct = Submission.status_correct status
+        statusCorrect = Submission.statusCorrect status
     in
         H.div
             [ A.classList
                 [ ("question-content", True)
-                , ("question-content-correct", Just True == status_correct)
-                , ("question-content-incorrect", Just False == status_correct)
+                , ("question-content-correct", Just True == statusCorrect)
+                , ("question-content-incorrect", Just False == statusCorrect)
                 ]
             ]
             [ H.h2 [] [ H.text question.question ]
@@ -239,11 +237,7 @@ view' state =
         Result.Ok ( questions, quizzes ) ->
             case state.stage of
                 List ->
-                    H.div
-                        []
-                        [ H.div [] [ H.text ( toString state.grade ) ]
-                        , viewQuizSummary quizzes
-                        ]
+                    viewQuizSummary quizzes
 
                 ViewQuiz id ->
                     List.filter (\q -> q.id == id) quizzes
