@@ -338,7 +338,16 @@ getStage = Result.withDefault
 
 -- Update our state with the result of our parser whenever URL changes
 urlUpdate data state =
-    { state | stage = getStage state.stage data } ! []
+    let
+        stage =
+            getStage state.stage data
+    in
+        case stage of
+            ViewQuiz id ->
+                { state | stage = stage, answers = Dict.empty } ! []
+
+            otherwise ->
+                { state | stage = stage } ! []
 
 main = Navigation.program
     ( Navigation.makeParser parser )
