@@ -2,6 +2,7 @@ module Question exposing (..)
 
 import Json.Decode as Decoder exposing ((:=))
 
+-- Match the backend Question datatype
 type alias Question =
     { id : Int
     , question : String

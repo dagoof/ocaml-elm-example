@@ -2,6 +2,7 @@ module Quiz exposing (..)
 
 import Json.Decode as Decoder exposing ((:=))
 
+-- Match the backend Quiz datatype
 type alias Quiz =
     { id : Int
     , title : String

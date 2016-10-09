@@ -15,16 +15,20 @@ import Quiz
 import Question
 import Submission
 
+-- Trick to avoid reloading the page on url click, better than "#"
 goNowhere = A.href "javascript:;"
 
+-- Take us to a URL through elm's Navigation system.
 goto url =
     [ goNowhere
     , E.onClick ( Page url )
     ]
 
+-- Helper to avoid this ugly string concat constantly
 gotoQuiz id =
     goto ( "/quiz/" ++ ( toString id ))
 
+-- Let HTTP Requests also represent a loading state before we get the result
 type Status
     = Loading
     | Issue Http.Error
@@ -39,6 +43,8 @@ type Message
     | Quizzes ( Result Status ( List Quiz.Quiz ))
     | Grade Int ( Result Status Submission.Response )
 
+-- Helper to create Body suitable to POST
+encodeJSON : ( a -> Encoder.Value ) -> a -> Http.Body
 encodeJSON encoder data =
     encoder data
     |> Encoder.encode 0
@@ -62,6 +68,7 @@ getQuestions =
             ( Questions << Result.Err << Issue )
             ( Questions << Result.Ok )
 
+-- Post a single Answer and get back its corresponding Response
 postSubmission : Submission.Answer -> Cmd Message
 postSubmission submission =
     Http.post
@@ -72,6 +79,19 @@ postSubmission submission =
             ( Grade submission.questionID << Result.Err << Issue )
             ( Grade submission.questionID << Result.Ok )
 
+{-
+we bootstrap our app with questions and quizzes and use them for everything
+
+stage is the page the user is looking at right now
+
+answers is a dump where we track what the current state of all questions
+this includes:
+
+    which answer is selected
+    has the question been subimitted
+    was that submission successful
+    was the answer we got back correct
+-}
 type alias State =
     { questions : Result Status ( List Question.Question )
     , quizzes : Result Status ( List Quiz.Quiz )
@@ -87,6 +107,8 @@ init data =
     , stage = getStage initStage data
     } ! [ getQuizzes, getQuestions ]
 
+-- If we have an answer for a question, create a command to submit it
+submitQuestion : Int -> Dict.Dict Int Submission.Tracker -> Cmd Message
 submitQuestion questionID answers =
     Dict.get questionID answers
     `Maybe.andThen` Submission.trackerSelected
@@ -94,21 +116,27 @@ submitQuestion questionID answers =
     |> Maybe.map postSubmission
     |> Maybe.withDefault Cmd.none
 
+-- Create a new state and a command to run as the result of a message
 update : Message -> State -> ( State, Cmd Message )
 update msg state =
     case msg of
+        -- Retry initializing our questions and quizzes.
+        -- They should already be here from init
         Sync ->
             state ! [ getQuizzes, getQuestions ]
 
         Page s ->
             state ! [ Navigation.newUrl s ]
 
+        -- Handle question response
         Questions questions ->
             { state | questions = questions } ! []
 
+        -- Handle quiz response
         Quizzes quizzes ->
             { state | quizzes = quizzes } ! []
 
+        -- Mark off a grade after as a result of submitting an answer
         Grade questionID grade ->
             let
                 status =
@@ -125,12 +153,15 @@ update msg state =
             in
                { state | answers = answers } ! []
 
+        -- Submit a single question
         Submit questionID ->
             state ! [ submitQuestion questionID state.answers ]
 
+        -- Submit an entire quiz worth of questions
         SubmitQuiz questionIDs ->
             state ! ( List.map ( flip submitQuestion state.answers ) questionIDs )
 
+        -- Select a new answer and drop any associated *success* *failure* *response* data
         SelectAnswer questionID index ->
             let
                 select tracker =
@@ -149,6 +180,7 @@ update msg state =
 viewQuestion : Submission.Tracker -> Question.Question -> H.Html Message
 viewQuestion tracker question =
     let
+        -- Is our answer graded as correct?
         statusCorrect =
             Submission.trackerCorrect tracker
 
@@ -163,6 +195,7 @@ viewQuestion tracker question =
                 ]
                 [ H.text answer ]
 
+        -- Don't allow clicking when we know the answer is correct
         viewReadOnlyAnswer index answer =
             H.li
                 [ A.classList
@@ -201,25 +234,30 @@ viewQuiz answers questions quiz =
         questionInQuiz question =
             List.member question.id quiz.question_ids
 
-        status question =
+        -- The tracker for a given question
+        tracker question =
             answers
             |> Dict.get question.id
             |> Maybe.withDefault Submission.trackerInit
 
+        -- The subset of questions that are in this quiz
         questions' =
             List.filter questionInQuiz questions
 
+        -- View for a single question
         questionView question =
-            viewQuestion ( status question ) question
+            viewQuestion ( tracker question ) question
 
+        -- have all the questions been answered?
         allAnswered =
-            List.all ( status >> Submission.trackerHasSelection ) questions'
+            List.all ( tracker >> Submission.trackerHasSelection ) questions'
 
+        -- have all the questions been answered and are also graded as correct?
         allCorrect =
             let
                 correct = Maybe.withDefault False
             in
-                List.all ( status >> Submission.trackerCorrect >> correct ) questions'
+                List.all ( tracker >> Submission.trackerCorrect >> correct ) questions'
     in
         H.div
             [ A.class "quiz-content" ]
@@ -233,11 +271,13 @@ viewQuiz answers questions quiz =
             , H.div
                 [ A.class "quiz-controls" ]
                 [ H.button
+                    -- Only submit when all answered
                     [ E.onClick ( SubmitQuiz <| List.map .id questions' )
                     , A.disabled ( not allAnswered )
                     ]
                     [ H.text "Submit" ]
                 , H.button
+                    -- Only next when all correct
                     ( A.disabled ( not allCorrect ) :: gotoQuiz ( quiz.id + 1 ))
                     [ H.text "Next" ]
                 ]
@@ -289,6 +329,7 @@ view' state =
         Result.Err ( Issue ( Http.BadResponse code msg )) ->
             H.text "Ugh, something went wrong on our end... Sorry about that :|"
 
+        -- We need both questions and quizzes to do anything
         Result.Ok ( questions, quizzes ) ->
             case state.stage of
                 List ->
