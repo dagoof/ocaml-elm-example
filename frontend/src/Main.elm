@@ -137,6 +137,7 @@ update msg state =
                     tracker
                     |> Maybe.withDefault Submission.trackerInit
                     |> Submission.select index
+                    |> Submission.status Submission.Pending
                     |> Just
 
                 answers =
@@ -172,11 +173,6 @@ viewQuestion tracker question =
             , H.ul
                 [ A.class "answer-list" ]
                 ( List.indexedMap viewAnswer question.answers )
-                {-
-            , H.button
-                [ E.onClick ( Submit question.id ) ]
-                [ H.text "Submit" ]
-                -}
             ]
 
 viewQuiz
@@ -214,18 +210,21 @@ viewQuiz answers questions quiz =
             [ H.div []
                 [ H.a
                     ( goto "/" )
-                    [ H.text "back" ]
+                    [ H.text "« back" ]
                 ]
             , H.h1 [] [ H.text quiz.title ]
             , H.div [] ( List.map questionView questions' )
-            , H.button
-                [ E.onClick ( SubmitQuiz <| List.map .id questions' )
-                , A.disabled ( not allAnswered )
+            , H.div
+                [ A.class "quiz-controls" ]
+                [ H.button
+                    [ E.onClick ( SubmitQuiz <| List.map .id questions' )
+                    , A.disabled ( not allAnswered )
+                    ]
+                    [ H.text "Submit" ]
+                , H.button
+                    ( A.disabled ( not allCorrect ) :: gotoQuiz ( quiz.id + 1 ))
+                    [ H.text "Next" ]
                 ]
-                [ H.text "Submit" ]
-            , H.button
-                ( A.disabled ( not allCorrect ) :: gotoQuiz ( quiz.id + 1 ))
-                [ H.text "Next" ]
             ]
 
 viewQuizSummary : List Quiz.Quiz -> H.Html Message
@@ -240,7 +239,9 @@ viewQuizSummary quizzes =
     in
         H.ul
             [ A.class "quiz-list" ]
-            ( List.map viewQuiz' quizzes )
+            [ H.h1 [] [ H.text "overview" ]
+            , H.div [] ( List.map viewQuiz' quizzes )
+            ]
 
 viewNoQuiz : H.Html Message
 viewNoQuiz =
@@ -249,7 +250,7 @@ viewNoQuiz =
         [ H.div []
             [ H.a
                 ( goto "/" )
-                [ H.text "back" ]
+                [ H.text "« back" ]
             ]
         , H.h2 [] [ H.text "That quiz doesn't exist!" ]
         ]
