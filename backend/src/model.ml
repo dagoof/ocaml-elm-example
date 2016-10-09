@@ -6,9 +6,11 @@ module Question = struct
         ; correct_answer : int
         } [@@deriving yojson]
 
+    (* Check that the question id answer matches one provided *)
     let id_is ~id t =
         t.id = id
 
+    (* Check that the question answer matches one provided *)
     let answer_is ~answer t =
         t.correct_answer = answer
 end
@@ -23,6 +25,7 @@ module Quiz = struct
     let id_is ~id t =
         t.id = id
 
+    (* Given a superset of questions, find the subset that exist in this quiz *)
     let questions ~questions t =
         let get_question id =
             List.find ( Question.id_is ~id ) questions
@@ -35,6 +38,7 @@ module Questions = struct
         { questions : Question.t list }
         [@@deriving yojson]
 
+    (* Get a single question by id *)
     let get id t =
         List.find ( Question.id_is ~id ) t.questions
 
@@ -47,12 +51,14 @@ module Quizzes = struct
         { quizzes : Quiz.t list }
         [@@deriving yojson]
 
+    (* Get a single quiz by id *)
     let get id t =
         List.find ( Quiz.id_is ~id ) t.quizzes
 
     let quizzes t = t.quizzes
 end
 
+(* A single answer from the client *)
 module Submission = struct
     type t =
         { question_id : int
@@ -67,12 +73,14 @@ module Submission = struct
         question_id = t.question_id
 end
 
+(* Answers for an entire quiz from the client *)
 module Submissions = struct
     type t =
         { quiz_id : int
         ; submissions : Submission.t list
         } [@@deriving yojson]
 
+    (* Get the submission for a specific question_id *)
     let get_answer ~question_id t =
         Submission.answer @@
         List.find
@@ -80,6 +88,11 @@ module Submissions = struct
             t.submissions
 end
 
+(* val : ( a -> ( b, c ) result ) -> a list -> ( b list, c ) result
+ *
+ * If the function has errored at any point, we short circuit and return
+ * the result. Otherwise we get a list of mapped values
+ *)
 let fold_result fn items =
     let folder a acc =
         let open Rresult in
@@ -127,6 +140,7 @@ end = struct
     let create quizzes questions =
         { questions; quizzes }
 
+    (* Grade a single question, see tests *)
     let grade_submission t submission =
         let question_id = Submission.question_id submission
         and answer = Submission.answer submission
@@ -141,6 +155,7 @@ end = struct
         with Not_found ->
             Result.Error ( Printf.sprintf "Question %d not found" question_id )
 
+    (* Grade a quiz, see tests *)
     let grade_submissions t submissions =
         let open Rresult in
 

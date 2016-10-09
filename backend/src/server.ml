@@ -14,6 +14,9 @@ let json_headers =
     ( Cohttp.Header.init () )
     [ "Content-Type", "application/json; charset=utf-8" ]
 
+(* Middleware to add CORS to all requests, really need this for OPTIONS
+ * preflight checks
+ *)
 let add_cors_headers =
     let filter handler req =
         handler req >|= fun response ->
@@ -24,6 +27,10 @@ let add_cors_headers =
     in
     Rock.Middleware.create ~name:"cors headers" ~filter
 
+(* We could do this (and I originally did) in an Lwt thread and keep them in
+ * the app middleware, but it really simplifies things to just load our data
+ * at startup and bail out early if anything goes wrong.
+ *)
 let load_json_file decoder fname =
     let open Batteries in
     File.with_file_in fname IO.read_all
@@ -46,19 +53,34 @@ and quiz_data = load_json_file
     ( Model.Quizzes.of_yojson << Yojson.Safe.from_string )
     "resources/quizzes.json"
 
+(* Encode out a set of json, output can be controlled by providing an alternate
+ * returner.
+ *
+ * Use *respond* to get back a Opium.Rock.Response outside of the Lwt monad
+ *)
 let render_json ?(returner=respond') encoder data =
     encoder data
     |> Yojson.Safe.to_string
     |> (fun s -> returner ~headers:json_headers @@ `String s )
 
+(* All the questions, straight from json *)
 let questions = get "/questions" begin fun req ->
     render_json Model.Questions.to_yojson question_data
 end
 
+(* All the quizzes, straight from json *)
 let quizzes = get "/quizzes" begin fun req ->
     render_json Model.Quizzes.to_yojson quiz_data
 end
 
+(* Grade a single question
+ *
+ * reads like this:
+     * create a grader
+     * parse provided json submission and use that to
+     * grade the submission against our grader
+     * render out a single grading response
+ *)
 let grade = post "/grade" begin fun req ->
     let grader = Model.Grading.create quiz_data question_data in
 
@@ -68,6 +90,7 @@ let grade = post "/grade" begin fun req ->
     end
 end
 
+(* Grade an entire quiz answer *)
 let grade_quiz = post "/grade_quiz" begin fun req ->
     let grader = Model.Grading.create quiz_data question_data in
 
@@ -77,6 +100,7 @@ let grade_quiz = post "/grade_quiz" begin fun req ->
     end
 end
 
+(* Apply all of our routes, middleware, and run the app *)
 let () =
     App.empty
     |> questions
