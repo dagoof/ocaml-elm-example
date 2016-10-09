@@ -4,6 +4,10 @@ FRONTEND = frontend/index.html
 
 all: build
 
+setup:
+	npm install single-page-server
+	$(MAKE) -C frontend $@
+
 $(BACKEND):
 	$(MAKE) -C backend build
 
