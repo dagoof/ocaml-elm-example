@@ -30,7 +30,7 @@ depends: [
   "ocamlbuild" {build}
   "ocamlfind" {build}
   "opium" {build}
-  "ppx_deriving_yojson" {>= "3.0"}
+  "ppx_deriving_yojson" {= "2.0"}
   "rresult" {build}
   "yojson"
 ]

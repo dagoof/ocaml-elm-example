@@ -6,6 +6,7 @@ all: build
 
 setup:
 	npm install single-page-server
+	opam install opium lwt yojson ppx_deriving_yojson batteries cohttp rresult alcotest
 	$(MAKE) -C frontend $@
 
 $(BACKEND):
