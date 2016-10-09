@@ -29,8 +29,8 @@ depends: [
   "oasis" {build & >= "0.4"}
   "ocamlbuild" {build}
   "ocamlfind" {build}
-  "opium" {build}
-  "ppx_deriving_yojson" {= "2.0"}
+  "opium" {build & >= "0.15.0"}
+  "ppx_deriving_yojson" {>= "3.0"}
   "rresult" {build}
   "yojson"
 ]

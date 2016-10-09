@@ -5,12 +5,13 @@ FRONTEND = frontend/index.html
 all: build
 
 setup:
-	npm install single-page-server
-	opam install opium lwt yojson ppx_deriving_yojson batteries cohttp rresult alcotest
+	npm install https://github.com/daviesian/single-page-server
+	opam pin add ocaml_elm_example backend -y
 	$(MAKE) -C frontend $@
 
 $(BACKEND):
 	$(MAKE) -C backend build
+	chmod +x $@
 
 $(FRONTEND):
 	$(MAKE) -C frontend build
