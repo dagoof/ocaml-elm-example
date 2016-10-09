@@ -149,6 +149,9 @@ update msg state =
 viewQuestion : Submission.Tracker -> Question.Question -> H.Html Message
 viewQuestion tracker question =
     let
+        statusCorrect =
+            Submission.trackerCorrect tracker
+
         viewAnswer index answer =
             H.li
                 [ A.classList
@@ -160,7 +163,20 @@ viewQuestion tracker question =
                 ]
                 [ H.text answer ]
 
-        statusCorrect = Submission.trackerCorrect tracker
+        viewReadOnlyAnswer index answer =
+            H.li
+                [ A.classList
+                    [ ("answer-item", True)
+                    , ("answer-item-selected", Submission.selected index tracker )
+                    , ("answer-item-correct", index == question.correct_answer)
+                    ]
+                ]
+                [ H.text answer ]
+
+        answerView =
+            if Maybe.withDefault False statusCorrect
+               then viewReadOnlyAnswer
+               else viewAnswer
     in
         H.div
             [ A.classList
@@ -172,7 +188,7 @@ viewQuestion tracker question =
             [ H.h2 [] [ H.text question.question ]
             , H.ul
                 [ A.class "answer-list" ]
-                ( List.indexedMap viewAnswer question.answers )
+                ( List.indexedMap answerView question.answers )
             ]
 
 viewQuiz

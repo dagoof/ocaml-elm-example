@@ -57,6 +57,11 @@ button:disabled {
 	color: rgba(255,14,77,1.0);
 }
 
+.question-content.question-content-correct li.answer-item {
+	color: rgba(1,8,19,0.35);
+	cursor: default;
+}
+
 /*
 .answer-list .answer-item-correct {
 	text-decoration: underline;
