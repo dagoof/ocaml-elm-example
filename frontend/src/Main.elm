@@ -15,13 +15,21 @@ import Quiz
 import Question
 import Submission
 
--- Trick to avoid reloading the page on url click, better than "#"
-goNowhere = A.href "javascript:;"
+
+onPreventDefaultClick : msg -> H.Attribute msg
+onPreventDefaultClick msg =
+    let
+        options =
+            E.defaultOptions
+    in
+        E.onWithOptions "click"
+            { options | preventDefault = True }
+            ( Decoder.succeed msg )
 
 -- Take us to a URL through elm's Navigation system.
 goto url =
-    [ goNowhere
-    , E.onClick ( Page url )
+    [ A.href url
+    , onPreventDefaultClick ( Page url )
     ]
 
 -- Helper to avoid this ugly string concat constantly
