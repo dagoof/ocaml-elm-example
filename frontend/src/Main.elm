@@ -21,10 +21,17 @@ onPreventDefaultClick msg =
     let
         options =
             E.defaultOptions
+
+        decoder =
+            ( "metaKey" := Decoder.bool ) `Decoder.andThen` (\metaDown ->
+                if not metaDown
+                then Decoder.succeed msg
+                else Decoder.fail "Meta key down, let default happen"
+            )
     in
         E.onWithOptions "click"
             { options | preventDefault = True }
-            ( Decoder.succeed msg )
+            decoder
 
 -- Take us to a URL through elm's Navigation system.
 goto url =
